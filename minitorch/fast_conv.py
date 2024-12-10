@@ -91,7 +91,33 @@ def _tensor_conv1d(
     s2 = weight_strides
 
     # TODO: Implement for Task 4.1.
-    raise NotImplementedError("Need to implement for Task 4.1")
+    # Iterate over output tensor
+    for b in prange(batch_):  # Batch loop
+        for oc in prange(out_channels):  # Out channels
+            for ow in prange(out_width):  # Out width
+                acc = 0.0  # Accumulator for convolution
+                for ic in range(in_channels):  # Input channels
+                    for kw_idx in range(kw):  # Kernel width
+                        if reverse:
+                            iw = ow - kw_idx  # Reverse indexing
+                        else:
+                            iw = ow + kw_idx  # Forward indexing
+                        if 0 <= iw < width:  # Check bounds
+                            # Compute input and weight positions
+                            input_idx = (
+                                b * s1[0] + ic * s1[1] + iw * s1[2]
+                            )
+                            weight_idx = (
+                                oc * s2[0] + ic * s2[1] + kw_idx * s2[2]
+                            )
+                            acc += input[input_idx] * weight[weight_idx]
+
+                # Write to output tensor
+                out_idx = (
+                    b * out_strides[0] + oc * out_strides[1] + ow * out_strides[2]
+                )
+                out[out_idx] = acc
+
 
 
 tensor_conv1d = njit(_tensor_conv1d, parallel=True)
@@ -203,7 +229,7 @@ def _tensor_conv2d(
         reverse (bool): anchor weight at top-left or bottom-right
 
     """
-    batch_, out_channels, _, _ = out_shape
+    batch_, out_channels, out_height, out_width = out_shape
     batch, in_channels, height, width = input_shape
     out_channels_, in_channels_, kh, kw = weight_shape
 
@@ -220,7 +246,44 @@ def _tensor_conv2d(
     s20, s21, s22, s23 = s2[0], s2[1], s2[2], s2[3]
 
     # TODO: Implement for Task 4.2.
-    raise NotImplementedError("Need to implement for Task 4.2")
+    for b in prange(batch_):  # Batch loop
+        for oc in prange(out_channels):  # Out channels loop
+            for oh in prange(out_height):  # Output height loop
+                for ow in prange(out_width):  # Output width loop
+                    acc = 0.0  # Accumulator for convolution
+                    for ic in range(in_channels):  # Input channels loop
+                        for kh_idx in range(kh):  # Kernel height loop
+                            for kw_idx in range(kw):  # Kernel width loop
+                                if reverse:
+                                    ih = oh - kh_idx  # Reverse height indexing
+                                    iw = ow - kw_idx  # Reverse width indexing
+                                else:
+                                    ih = oh + kh_idx  # Forward height indexing
+                                    iw = ow + kw_idx  # Forward width indexing
+                                if 0 <= ih < height and 0 <= iw < width:  # Check bounds
+                                    # Compute input and weight positions
+                                    input_idx = (
+                                        b * s10
+                                        + ic * s11
+                                        + ih * s12
+                                        + iw * s13
+                                    )
+                                    weight_idx = (
+                                        oc * s20
+                                        + ic * s21
+                                        + kh_idx * s22
+                                        + kw_idx * s23
+                                    )
+                                    acc += input[input_idx] * weight[weight_idx]
+
+                    # Write to output tensor
+                    out_idx = (
+                        b * out_strides[0]
+                        + oc * out_strides[1]
+                        + oh * out_strides[2]
+                        + ow * out_strides[3]
+                    )
+                    out[out_idx] = acc
 
 
 tensor_conv2d = njit(_tensor_conv2d, parallel=True, fastmath=True)

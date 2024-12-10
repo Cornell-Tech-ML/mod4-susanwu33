@@ -1,5 +1,8 @@
 from numba import njit
 
+import sys
+sys.path.append('/Users/wuyushan/workspace/mod3-susanwu33/')
+
 import minitorch
 import minitorch.fast_ops
 
