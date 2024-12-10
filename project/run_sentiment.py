@@ -68,17 +68,10 @@ class CNNSentimentKim(minitorch.Module):
         
 
         # Create convolution layers for each filter size (3, 4, 5)
-        self.convs = []
-        for filter_size in filter_sizes:
-            conv = Conv1d(
-                in_channels=self.embedding_size,
-                out_channels=self.feature_map_size,
-                kernel_width=filter_size,
-            )
-            self.convs.append(conv)
-        
-        # Convert list to a module
-        self.convs = minitorch.ModuleList(self.convs)
+        self.conv1 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[0])
+        self.conv2 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[1])
+        self.conv3 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[2])
+    
         
         # Linear layer to map features to the output classes
         self.fc = Linear(feature_map_size, 1)
@@ -94,25 +87,25 @@ class CNNSentimentKim(minitorch.Module):
         embeddings = embeddings.permute(0, 2, 1)
 
         # Step 1: Apply convolutions followed by ReLU activation
-        features = []
-        for conv in self.convs:
-            conv_out = conv.forward(embeddings).relu()
-            features.append(conv_out)
+        conv_out1 = self.conv1.forward(embeddings).relu()
+        conv_out2 = self.conv2.forward(embeddings).relu()
+        conv_out3 = self.conv3.forward(embeddings).relu()
 
         # Step 2: Apply max-over-time pooling
-        pooled_features = []
-        for feature_map in features:
-            pooled_feature = minitorch.nn.max(feature_map, dim=2)
-            pooled_features.append(pooled_feature)
+        pooled_feature1 = minitorch.nn.max(conv_out1, dim=2)
+        pooled_feature2 = minitorch.nn.max(conv_out2, dim=2)
+        pooled_feature3 = minitorch.nn.max(conv_out3, dim=2)
+
         
         # Step 3: Sum the pooled features from different filter sizes
-        summed_features = (pooled_feature[0] + pooled_feature[1] + pooled_feature[2])
+        summed_features = (pooled_feature1 + pooled_feature2 + pooled_feature3)
         
         # Step 4: Apply a fully connected layer with ReLU and Dropout
-        fc_out = self.fc(summed_features.view(batch_size, embedding_dim))
+        x = self.fc(summed_features.view(summed_features.shape[0], summed_features.shape[1]))
 
         # Step 5: Apply dropout and sigmoid activation
-        x = minitorch.nn.dropout(fc_out, self.dropout)
+        if self.training:
+            x = minitorch.nn.dropout(x, self.dropout_rate)
 
         return x.sigmoid().view(embeddings.shape[0])
 
@@ -149,15 +142,32 @@ def default_log_fn(
     train_accuracy,
     validation_predictions,
     validation_accuracy,
+    log_file="sentiment.txt",
 ):
     global best_val
     best_val = (
         best_val if best_val > validation_accuracy[-1] else validation_accuracy[-1]
     )
-    print(f"Epoch {epoch}, loss {train_loss}, train accuracy: {train_accuracy[-1]:.2%}")
+    
+    # Construct log message
+    log_message = (
+        f"Epoch {epoch}, loss {train_loss}, "
+        f"train accuracy: {train_accuracy[-1]:.2%}, "
+    )
     if len(validation_predictions) > 0:
-        print(f"Validation accuracy: {validation_accuracy[-1]:.2%}")
-        print(f"Best Valid accuracy: {best_val:.2%}")
+        log_message += (
+            f"Validation accuracy: {validation_accuracy[-1]:.2%}, "
+            f"Best Valid accuracy: {best_val:.2%}\n"
+        )
+    else:
+        log_message += "\n"
+    
+    # Print the message to the console
+    print(log_message.strip())
+    
+    # Append the message to the log file
+    with open(log_file, "a") as f:
+        f.write(log_message)
 
 
 class SentenceSentimentTrain:

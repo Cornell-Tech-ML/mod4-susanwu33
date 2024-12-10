@@ -97,7 +97,9 @@ class Network(minitorch.Module):
 
         # Step 5: Fully connected layer to size 64 + ReLU + Dropout
         x = self.fc1.forward(x).relu()
-        x = minitorch.nn.dropout(x, self.dropout)
+
+        if self.training:
+            x = minitorch.nn.dropout(x, self.dropout)
 
         # Step 6: Fully connected layer to size C (number of classes)
         x = self.fc2.forward(x)
@@ -118,8 +120,17 @@ def make_mnist(start, stop):
     return X, ys
 
 
-def default_log_fn(epoch, total_loss, correct, total, losses, model):
-    print(f"Epoch {epoch} loss {total_loss} valid acc {correct}/{total}")
+def default_log_fn(epoch, total_loss, correct, total, losses, model, log_file = "mnist.txt"):
+
+    # Prepare the log message for this epoch
+    log_message = f"Epoch {epoch} loss {total_loss} valid acc {correct}/{total}\n"
+    
+    # Write to log file (append mode)
+    with open(log_file, "a") as f:
+        f.write(log_message)
+
+    # Print log message for console output (optional)
+    print(log_message)
 
 
 class ImageTrain:
