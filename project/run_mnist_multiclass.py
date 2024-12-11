@@ -42,7 +42,7 @@ class Conv2d(minitorch.Module):
 
     def forward(self, input):
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        return minitorch.conv2d(input, self.weights.value) + self.bias.value
 
 
 class Network(minitorch.Module):
@@ -68,11 +68,43 @@ class Network(minitorch.Module):
         self.out = None
 
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+
+        # Layers
+        self.conv1 = Conv2d(1, 4, 3, 3)  # 1 input channel (grayscale), 4 output channels
+        self.conv2 = Conv2d(4, 8, 3, 3)  # 4 input channels, 8 output channels
+        self.pool = minitorch.avgpool2d  # Use average pooling
+        self.fc1 = Linear(392, 64)       # Flattened size to 64
+        self.fc2 = Linear(64, C)         # Map to number of classes (10)
+        self.dropout = 0.25
+
 
     def forward(self, x):
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Step 1: First convolution + ReLU
+        x = self.conv1.forward(x).relu()
+        self.mid = x  # Save for visualization
+
+        # Step 2: Second convolution + ReLU
+        x = self.conv2.forward(x).relu()
+        self.out = x  # Save for visualization
+
+        # Step 3: Apply pooling
+        x = minitorch.avgpool2d(x, (4, 4))  # Pooling with kernel size 4x4
+
+        # Step 4: Flatten the output
+        x = x.view(BATCH, 392)  # Flatten to [BATCH x 392]
+
+        # Step 5: Fully connected layer to size 64 + ReLU + Dropout
+        x = self.fc1.forward(x).relu()
+
+        if self.training:
+            x = minitorch.nn.dropout(x, self.dropout)
+
+        # Step 6: Fully connected layer to size C (number of classes)
+        x = self.fc2.forward(x)
+
+        # Step 7: LogSoftmax over class dimension
+        return minitorch.logsoftmax(x, dim=1)
 
 
 def make_mnist(start, stop):
@@ -87,8 +119,17 @@ def make_mnist(start, stop):
     return X, ys
 
 
-def default_log_fn(epoch, total_loss, correct, total, losses, model):
-    print(f"Epoch {epoch} loss {total_loss} valid acc {correct}/{total}")
+def default_log_fn(epoch, total_loss, correct, total, losses, model, log_file = "mnist.txt"):
+
+    # Prepare the log message for this epoch
+    log_message = f"Epoch {epoch} loss {total_loss} valid acc {correct}/{total}\n"
+
+    # Write to log file (append mode)
+    with open(log_file, "a") as f:
+        f.write(log_message)
+
+    # Print log message for console output (optional)
+    print(log_message)
 
 
 class ImageTrain:
@@ -171,4 +212,4 @@ class ImageTrain:
 
 if __name__ == "__main__":
     data_train, data_val = (make_mnist(0, 5000), make_mnist(10000, 10500))
-    ImageTrain().train(data_train, data_val, learning_rate=0.01)
+    ImageTrain().train(data_train, data_val, max_epochs = 25, learning_rate=0.01)

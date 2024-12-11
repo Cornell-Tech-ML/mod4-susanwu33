@@ -1,3 +1,5 @@
+"""The minitorch package provides functionalities for tensor operations, optimizers, and neural network components."""
+
 from .testing import MathTest, MathTestVariable  # type: ignore # noqa: F401,F403
 from .datasets import *  # noqa: F401,F403
 from .optim import *  # noqa: F401,F403

@@ -35,7 +35,7 @@ class Conv1d(minitorch.Module):
 
     def forward(self, input):
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        return minitorch.conv1d(input, self.weights.value) + self.bias.value
 
 
 class CNNSentimentKim(minitorch.Module):
@@ -62,14 +62,52 @@ class CNNSentimentKim(minitorch.Module):
         super().__init__()
         self.feature_map_size = feature_map_size
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        self.embedding_size = embedding_size
+        self.filter_sizes = filter_sizes
+        self.dropout_rate = dropout
+
+
+        # Create convolution layers for each filter size (3, 4, 5)
+        self.conv1 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[0])
+        self.conv2 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[1])
+        self.conv3 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[2])
+
+
+        # Linear layer to map features to the output classes
+        self.fc = Linear(feature_map_size, 1)
 
     def forward(self, embeddings):
         """
         embeddings tensor: [batch x sentence length x embedding dim]
         """
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        batch_size, sentence_length, embedding_dim = embeddings.shape
+
+        # Permute embeddings for Conv1d: [batch x embedding_dim x sentence_length]
+        embeddings = embeddings.permute(0, 2, 1)
+
+        # Step 1: Apply convolutions followed by ReLU activation
+        conv_out1 = self.conv1.forward(embeddings).relu()
+        conv_out2 = self.conv2.forward(embeddings).relu()
+        conv_out3 = self.conv3.forward(embeddings).relu()
+
+        # Step 2: Apply max-over-time pooling
+        pooled_feature1 = minitorch.nn.max(conv_out1, dim=2)
+        pooled_feature2 = minitorch.nn.max(conv_out2, dim=2)
+        pooled_feature3 = minitorch.nn.max(conv_out3, dim=2)
+
+
+        # Step 3: Sum the pooled features from different filter sizes
+        summed_features = (pooled_feature1 + pooled_feature2 + pooled_feature3)
+
+        # Step 4: Apply a fully connected layer with ReLU and Dropout
+        x = self.fc(summed_features.view(summed_features.shape[0], summed_features.shape[1]))
+
+        # Step 5: Apply dropout and sigmoid activation
+        if self.training:
+            x = minitorch.nn.dropout(x, self.dropout_rate)
+
+        return x.sigmoid().view(embeddings.shape[0])
 
 
 # Evaluation helper methods
@@ -104,15 +142,32 @@ def default_log_fn(
     train_accuracy,
     validation_predictions,
     validation_accuracy,
+    log_file="sentiment.txt",
 ):
     global best_val
     best_val = (
         best_val if best_val > validation_accuracy[-1] else validation_accuracy[-1]
     )
-    print(f"Epoch {epoch}, loss {train_loss}, train accuracy: {train_accuracy[-1]:.2%}")
+
+    # Construct log message
+    log_message = (
+        f"Epoch {epoch}, loss {train_loss}, "
+        f"train accuracy: {train_accuracy[-1]:.2%}, "
+    )
     if len(validation_predictions) > 0:
-        print(f"Validation accuracy: {validation_accuracy[-1]:.2%}")
-        print(f"Best Valid accuracy: {best_val:.2%}")
+        log_message += (
+            f"Validation accuracy: {validation_accuracy[-1]:.2%}, "
+            f"Best Valid accuracy: {best_val:.2%}\n"
+        )
+    else:
+        log_message += "\n"
+
+    # Print the message to the console
+    print(log_message.strip())
+
+    # Append the message to the log file
+    with open(log_file, "a") as f:
+        f.write(log_message)
 
 
 class SentenceSentimentTrain:
