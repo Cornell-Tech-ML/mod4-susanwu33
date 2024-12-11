@@ -1,14 +1,11 @@
 from typing import Tuple, TypeVar, Any
 
-import numpy as np
 from numba import prange
 from numba import njit as _njit
 
 from .autodiff import Context
 from .tensor import Tensor
 from .tensor_data import (
-    MAX_DIMS,
-    Index,
     Shape,
     Strides,
     Storage,
@@ -22,6 +19,18 @@ Fn = TypeVar("Fn")
 
 
 def njit(fn: Fn, **kwargs: Any) -> Fn:
+    """Just-in-time compile a function using Numba.
+
+    Args:
+    ----
+        fn (Fn): The function to be compiled.
+        **kwargs: Additional keyword arguments passed to Numba's njit.
+
+    Returns:
+    -------
+        Fn: The JIT-compiled function.
+
+    """
     return _njit(inline="always", **kwargs)(fn)  # type: ignore
 
 
@@ -104,20 +113,13 @@ def _tensor_conv1d(
                             iw = ow + kw_idx  # Forward indexing
                         if 0 <= iw < width:  # Check bounds
                             # Compute input and weight positions
-                            input_idx = (
-                                b * s1[0] + ic * s1[1] + iw * s1[2]
-                            )
-                            weight_idx = (
-                                oc * s2[0] + ic * s2[1] + kw_idx * s2[2]
-                            )
+                            input_idx = b * s1[0] + ic * s1[1] + iw * s1[2]
+                            weight_idx = oc * s2[0] + ic * s2[1] + kw_idx * s2[2]
                             acc += input[input_idx] * weight[weight_idx]
 
                 # Write to output tensor
-                out_idx = (
-                    b * out_strides[0] + oc * out_strides[1] + ow * out_strides[2]
-                )
+                out_idx = b * out_strides[0] + oc * out_strides[1] + ow * out_strides[2]
                 out[out_idx] = acc
-
 
 
 tensor_conv1d = njit(_tensor_conv1d, parallel=True)
@@ -153,6 +155,21 @@ class Conv1dFun(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Compute the gradient of the output with respect to input and weight.
+
+        Args:
+        ----
+            ctx : Context
+                The context object containing saved values.
+            grad_output : Tensor
+                The gradient of the loss with respect to the output.
+
+        Returns:
+        -------
+            Tuple[Tensor, Tensor]
+                Gradients with respect to input and weight.
+
+        """
         input, weight = ctx.saved_values
         batch, in_channels, w = input.shape
         out_channels, in_channels, kw = weight.shape
@@ -262,12 +279,7 @@ def _tensor_conv2d(
                                     iw = ow + kw_idx  # Forward width indexing
                                 if 0 <= ih < height and 0 <= iw < width:  # Check bounds
                                     # Compute input and weight positions
-                                    input_idx = (
-                                        b * s10
-                                        + ic * s11
-                                        + ih * s12
-                                        + iw * s13
-                                    )
+                                    input_idx = b * s10 + ic * s11 + ih * s12 + iw * s13
                                     weight_idx = (
                                         oc * s20
                                         + ic * s21
@@ -317,6 +329,21 @@ class Conv2dFun(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Compute the gradient of the output with respect to input and weight.
+
+        Args:
+        ----
+            ctx : Context
+                The context object containing saved values.
+            grad_output : Tensor
+                The gradient of the loss with respect to the output.
+
+        Returns:
+        -------
+            Tuple[Tensor, Tensor]
+                Gradients with respect to input and weight.
+
+        """
         input, weight = ctx.saved_values
         batch, in_channels, h, w = input.shape
         out_channels, in_channels, kh, kw = weight.shape

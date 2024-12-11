@@ -68,7 +68,7 @@ class Network(minitorch.Module):
         self.out = None
 
         # TODO: Implement for Task 4.5.
-        
+
         # Layers
         self.conv1 = Conv2d(1, 4, 3, 3)  # 1 input channel (grayscale), 4 output channels
         self.conv2 = Conv2d(4, 8, 3, 3)  # 4 input channels, 8 output channels
@@ -92,8 +92,7 @@ class Network(minitorch.Module):
         x = minitorch.avgpool2d(x, (4, 4))  # Pooling with kernel size 4x4
 
         # Step 4: Flatten the output
-        batch_size = x.shape[0]
-        x = x.view(batch_size, -1)  # Flatten to [BATCH x 392]
+        x = x.view(BATCH, 392)  # Flatten to [BATCH x 392]
 
         # Step 5: Fully connected layer to size 64 + ReLU + Dropout
         x = self.fc1.forward(x).relu()
@@ -124,7 +123,7 @@ def default_log_fn(epoch, total_loss, correct, total, losses, model, log_file = 
 
     # Prepare the log message for this epoch
     log_message = f"Epoch {epoch} loss {total_loss} valid acc {correct}/{total}\n"
-    
+
     # Write to log file (append mode)
     with open(log_file, "a") as f:
         f.write(log_message)
@@ -213,4 +212,4 @@ class ImageTrain:
 
 if __name__ == "__main__":
     data_train, data_val = (make_mnist(0, 5000), make_mnist(10000, 10500))
-    ImageTrain().train(data_train, data_val, learning_rate=0.01)
+    ImageTrain().train(data_train, data_val, max_epochs = 25, learning_rate=0.01)

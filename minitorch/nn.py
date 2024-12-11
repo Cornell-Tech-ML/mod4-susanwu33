@@ -4,7 +4,7 @@ from . import operators
 from .autodiff import Context
 from .fast_ops import FastOps
 from .tensor import Tensor
-from .tensor_functions import Function, rand, tensor
+from .tensor_functions import Function, rand
 
 
 # List of functions in this file:
@@ -46,13 +46,14 @@ def tile(input: Tensor, kernel: Tuple[int, int]) -> Tuple[Tensor, int, int]:
     # Reshape the input tensor for tiling
     tiled = (
         input.view(batch, channel, new_height, kh, new_width, kw)
-             # Rearrange dimensions to group the kernel region
-             .permute(0, 1, 2, 4, 3, 5)
-             # Flatten the kernel region
-             .contiguous()
-             .view(batch, channel, new_height, new_width, kh * kw)
+        # Rearrange dimensions to group the kernel region
+        .permute(0, 1, 2, 4, 3, 5)
+        # Flatten the kernel region
+        .contiguous()
+        .view(batch, channel, new_height, new_width, kh * kw)
     )
     return tiled, new_height, new_width
+
 
 max_reduce = FastOps.reduce(operators.max, -1e9)
 
@@ -75,7 +76,7 @@ def avgpool2d(input: Tensor, kernel: Tuple[int, int]) -> Tensor:
     return tiled.mean(-1).view(input.shape[0], input.shape[1], new_height, new_width)
 
 
-def argmax(input: Tensor, dim: int) -> Tensor:
+def argmax(input: Tensor, dim: Tensor) -> Tensor:
     """Compute the argmax as a 1-hot tensor along a specified dimension."""
     return input == max_reduce(input, int(dim.item()))
 
@@ -102,7 +103,7 @@ class Max(Function):
         return max_reduce(input, int(dim.item()))
 
     @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
         """Backward pass for the Max function.
 
         Args:
@@ -117,12 +118,11 @@ class Max(Function):
         """
         input, dim = ctx.saved_values
         return (argmax(input, dim)) * grad_output, dim
-    
+
 
 def max(input: Tensor, dim: int) -> Tensor:
     """Compute the max value and indices along a given dimension."""
     return Max.apply(input, input._ensure_tensor(dim))
-
 
 
 def softmax(input: Tensor, dim: int) -> Tensor:
@@ -153,10 +153,10 @@ def maxpool2d(input: Tensor, kernel: Tuple[int, int]) -> Tensor:
     """
     # Reshape the input tensor for pooling
     tiled, new_height, new_width = tile(input, kernel)
-    
+
     # Use max_reduce to compute the max over the kernel region
     max_pooled = max_reduce(tiled, -1)
-    
+
     # Reshape the result to match the pooled dimensions
     return max_pooled.view(input.shape[0], input.shape[1], new_height, new_width)
 

@@ -65,14 +65,14 @@ class CNNSentimentKim(minitorch.Module):
         self.embedding_size = embedding_size
         self.filter_sizes = filter_sizes
         self.dropout_rate = dropout
-        
+
 
         # Create convolution layers for each filter size (3, 4, 5)
         self.conv1 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[0])
         self.conv2 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[1])
         self.conv3 = Conv1d(in_channels=self.embedding_size, out_channels=self.feature_map_size, kernel_width=filter_sizes[2])
-    
-        
+
+
         # Linear layer to map features to the output classes
         self.fc = Linear(feature_map_size, 1)
 
@@ -96,10 +96,10 @@ class CNNSentimentKim(minitorch.Module):
         pooled_feature2 = minitorch.nn.max(conv_out2, dim=2)
         pooled_feature3 = minitorch.nn.max(conv_out3, dim=2)
 
-        
+
         # Step 3: Sum the pooled features from different filter sizes
         summed_features = (pooled_feature1 + pooled_feature2 + pooled_feature3)
-        
+
         # Step 4: Apply a fully connected layer with ReLU and Dropout
         x = self.fc(summed_features.view(summed_features.shape[0], summed_features.shape[1]))
 
@@ -148,7 +148,7 @@ def default_log_fn(
     best_val = (
         best_val if best_val > validation_accuracy[-1] else validation_accuracy[-1]
     )
-    
+
     # Construct log message
     log_message = (
         f"Epoch {epoch}, loss {train_loss}, "
@@ -161,10 +161,10 @@ def default_log_fn(
         )
     else:
         log_message += "\n"
-    
+
     # Print the message to the console
     print(log_message.strip())
-    
+
     # Append the message to the log file
     with open(log_file, "a") as f:
         f.write(log_message)
